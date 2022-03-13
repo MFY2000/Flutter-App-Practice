@@ -68,18 +68,9 @@ class _HotelHomeScreenState extends State<HotelHomeScreen>
                               (BuildContext context, int index) {
                             return Column(
                               children: <Widget>[
-                                
                                 ElevatedButton(
-                                    onPressed: () {
-                                      if (Get.isDarkMode) {
-                                        Get.changeThemeMode(ThemeMode.light);
-                                      } else {
-                                        Get.changeThemeMode(ThemeMode.dark);
-                                      }
-                                    },
+                                    onPressed: ThemeService().switchTheme,
                                     child: Text("Change Theme")),
-                                
-                                
                                 getSearchBarUI(),
                                 getTimeDateUI(),
                               ],
