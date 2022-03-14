@@ -24,8 +24,6 @@ import 'fluid_example.dart';
 import 'inline_adaptive_example.dart';
 import 'reusable_inline_example.dart';
 
-// You can also test with your own ad unit IDs by registering your device as a
-// test device. Check the logs for your device's ID value.
 const String testDevice = 'YOUR_DEVICE_ID';
 const int maxFailedLoadAttempts = 3;
 
