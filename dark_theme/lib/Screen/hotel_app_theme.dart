@@ -21,6 +21,7 @@ class HotelAppTheme {
       backgroundColor: const Color(0xFFFFFFFF),
       scaffoldBackgroundColor: const Color(0xFFF6F6F6),
       errorColor: const Color(0xFFB00020),
+      iconTheme: const IconThemeData(color: Colors.black),
       buttonTheme: ButtonThemeData(
         colorScheme: colorScheme,
         textTheme: ButtonTextTheme.primary,
@@ -49,21 +50,23 @@ class HotelAppTheme {
       backgroundColor: Color.fromARGB(255, 0, 0, 0),
       scaffoldBackgroundColor: const Color(0xFFF6F6F6),
       errorColor: const Color(0xFFB00020),
+      iconTheme: const IconThemeData(color: Colors.white),
       buttonTheme: ButtonThemeData(
         colorScheme: colorScheme,
         textTheme: ButtonTextTheme.primary,
       ),
-      textTheme: TextTheme(
-        
-      ),
+      textTheme: const TextTheme(
+          bodyText1: TextStyle(
+            color: Color(0xFFF6F6F6),
+            fontWeight: FontWeight.w100,
+            fontSize: 16,
+          ),
+          bodyText2: TextStyle(color: Color(0xFFF6F6F6))),
       // textTheme: buildLightTheme,
       // primaryTextTheme: _buildTextTheme(base.primaryTextTheme),
       platform: TargetPlatform.iOS,
     );
-
   }
-
-  
 }
 
 class ThemeService {
@@ -72,11 +75,15 @@ class ThemeService {
 
   ThemeMode get theme => _loadThemeFromBox() ? ThemeMode.dark : ThemeMode.light;
   bool _loadThemeFromBox() => _box.read(_key) ?? false;
-  
+
   _saveThemeToBox(bool isDarkMode) => _box.write(_key, isDarkMode);
-  
+
   void switchTheme() {
     Get.changeThemeMode(_loadThemeFromBox() ? ThemeMode.light : ThemeMode.dark);
     _saveThemeToBox(!_loadThemeFromBox());
+  }
+
+  bool isDark() {
+    return _box.read(_key) ?? false;
   }
 }

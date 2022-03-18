@@ -18,7 +18,6 @@ class MyApp extends StatelessWidget {
     
     return GetMaterialApp(
         debugShowCheckedModeBanner: false,
-        title: 'KOLACHI',
         theme: HotelAppTheme.buildLightTheme(),
         darkTheme: HotelAppTheme.buildDarkTheme(),
         

@@ -1,3 +1,5 @@
+// ignore_for_file: unnecessary_const, prefer_const_constructors
+
 import 'dart:ui';
 import 'package:dark_theme/Screen/calendar_popup_view.dart';
 import 'package:dark_theme/Screen/hotel_list_view.dart';
@@ -68,9 +70,6 @@ class _HotelHomeScreenState extends State<HotelHomeScreen>
                               (BuildContext context, int index) {
                             return Column(
                               children: <Widget>[
-                                ElevatedButton(
-                                    onPressed: ThemeService().switchTheme,
-                                    child: Text("Change Theme")),
                                 getSearchBarUI(),
                                 getTimeDateUI(),
                               ],
@@ -234,6 +233,7 @@ class _HotelHomeScreenState extends State<HotelHomeScreen>
                           Text(
                             'Choose date',
                             style: TextStyle(
+                              
                                 fontWeight: FontWeight.w100,
                                 fontSize: 16,
                                 color: Colors.grey.withOpacity(0.8)),
@@ -419,7 +419,7 @@ class _HotelHomeScreenState extends State<HotelHomeScreen>
             child: Row(
               children: <Widget>[
                 Expanded(
-                  child: const Padding(
+                  child: Padding(
                     padding: EdgeInsets.all(8.0),
                     child: Text(
                       '530 hotels found',
@@ -463,8 +463,7 @@ class _HotelHomeScreenState extends State<HotelHomeScreen>
                           Padding(
                             padding: const EdgeInsets.all(8.0),
                             child: Icon(Icons.sort,
-                                color: HotelAppTheme.buildLightTheme()
-                                    .primaryColor),
+                                color: Theme.of(context).iconTheme.color),
                           ),
                         ],
                       ),
@@ -534,11 +533,12 @@ class _HotelHomeScreenState extends State<HotelHomeScreen>
                     Radius.circular(32.0),
                   ),
                   onTap: () {
-                    Navigator.pop(context);
+                    // Navigator.pop(context);
                   },
-                  child: const Padding(
+                  child: Padding(
                     padding: EdgeInsets.all(8.0),
-                    child: Icon(Icons.arrow_back),
+                    child: Icon(Icons.arrow_back,
+                        color: Theme.of(context).iconTheme.color),
                   ),
                 ),
               ),
@@ -555,7 +555,7 @@ class _HotelHomeScreenState extends State<HotelHomeScreen>
               ),
             ),
             Container(
-              width: AppBar().preferredSize.height + 40,
+              width: AppBar().preferredSize.height + 90,
               height: AppBar().preferredSize.height,
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
@@ -568,9 +568,27 @@ class _HotelHomeScreenState extends State<HotelHomeScreen>
                         Radius.circular(32.0),
                       ),
                       onTap: () {},
-                      child: const Padding(
+                      child: Padding(
                         padding: EdgeInsets.all(8.0),
-                        child: const Icon(Icons.favorite_border),
+                        child: Icon(Icons.favorite_border,
+                            color: Theme.of(context).iconTheme.color),
+                      ),
+                    ),
+                  ),
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: const BorderRadius.all(
+                        Radius.circular(32.0),
+                      ),
+                      onTap: ThemeService().switchTheme,
+                      child: Padding(
+                        padding: EdgeInsets.all(8.0),
+                        child: Icon(
+                            ThemeService().isDark()
+                                ? Icons.wb_sunny_outlined
+                                : FontAwesomeIcons.moon,
+                            color: Theme.of(context).iconTheme.color),
                       ),
                     ),
                   ),
@@ -581,7 +599,7 @@ class _HotelHomeScreenState extends State<HotelHomeScreen>
                         Radius.circular(32.0),
                       ),
                       onTap: () {},
-                      child: const Padding(
+                      child: Padding(
                         padding: EdgeInsets.all(8.0),
                         child: const Icon(FontAwesomeIcons.mapMarkerAlt),
                       ),
