@@ -34,34 +34,9 @@ class _bannerAdsState extends State<bannerAds> {
   double width = 480;
   double height = 712;
 
-  late BannerAd _bannerAd;
-  bool _isBannerAdReady = false;
+  // late BannerAd _bannerAd;
+  // bool _isBannerAdReady = false;
 
-  @override
-  void initState() {
-    super.initState();
-    _bannerAd = BannerAd(
-        size: AdSize.mediumRectangle,
-        adUnitId: AdHelper.bannerAdUnitId,
-        listener: BannerAdListener(onAdLoaded: (_) {
-          setState(() {
-            _isBannerAdReady = true;
-          });
-        }, onAdFailedToLoad: (ad, LoadAdError error) {
-          print("Failed to Load A Banner Ad${error.message}");
-          _isBannerAdReady = false;
-          ad.dispose();
-        }),
-        request: AdRequest())
-      ..load();
-    //Interstitial Ads
-  }
-
-  @override
-  void dispose() {
-    super.dispose();
-    _bannerAd.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -78,9 +53,7 @@ class _bannerAdsState extends State<bannerAds> {
               color: Colors.black,
               width: width * 0.75,
               height: height * 0.1,
-              child: _isBannerAdReady
-                  ? AdWidget(ad: _bannerAd!)
-                  : CircularProgressIndicator(),
+              child: const Image(image:  NetworkImage(""),),
             ))
       ],
     );
