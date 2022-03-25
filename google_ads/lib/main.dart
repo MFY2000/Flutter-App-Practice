@@ -3,6 +3,8 @@ import 'package:google_ads/Extra/ad_helper.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  // Mobile App Instance
   MobileAds.instance.initialize();
   runApp(const MyApp());
 }
@@ -34,9 +36,45 @@ class _bannerAdsState extends State<bannerAds> {
   double width = 480;
   double height = 712;
 
-  // late BannerAd _bannerAd;
-  // bool _isBannerAdReady = false;
+  late BannerAd _bannerAd;
+  late bool _isBannerAdReady = false;
+  late bool isLoaderLoad = false;
 
+  @override
+  void initState() {
+    timeOut();
+
+    super.initState();
+    _bannerAd = BannerAd(
+        // Change Banner Size According to Ur Need
+        size: AdSize.mediumRectangle,
+        adUnitId: AdHelper.bannerAdUnitId,
+        listener: BannerAdListener(onAdLoaded: (_) {
+          setState(() {
+            _isBannerAdReady = true;
+          });
+        }, onAdFailedToLoad: (ad, LoadAdError error) {
+          print("Failed to Load A Banner Ad${error.message}");
+          _isBannerAdReady = false;
+          ad.dispose();
+        }),
+        request: AdRequest())
+      ..load();
+  }
+
+  Future<void> timeOut() async {
+    Future.delayed(const Duration(seconds: 10), () {
+      setState(() {
+        isLoaderLoad = true;
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+    _bannerAd.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -49,12 +87,22 @@ class _bannerAdsState extends State<bannerAds> {
             bottom: 0,
             right: 40,
             left: 40,
-            child: Container(
-              color: Colors.black,
-              width: width * 0.75,
-              height: height * 0.1,
-              child: const Image(image:  NetworkImage(""),),
-            ))
+            child: SizedBox(
+                width: width * 0.75,
+                height: height * 0.1,
+                child: _isBannerAdReady
+                    ? SizedBox(
+                        height: _bannerAd.size.height.toDouble(),
+                        width: _bannerAd.size.width.toDouble(),
+                        child: AdWidget(ad: _bannerAd),
+                      )
+                    : (!isLoaderLoad
+                        ? (const CircularProgressIndicator())
+                        : const Image(
+                            image: NetworkImage(
+                                "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSZLi3mAXc00qZnI2GkiLJtff1PXpg95h2t8w&usqp=CAU"),
+                            fit: BoxFit.cover,
+                          ))))
       ],
     );
   }
