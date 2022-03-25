@@ -1,539 +1,594 @@
-// ignore_for_file:, unused_import, import_of_legacy_library_into_null_safe
+// // import 'package:cam_scanner/Screen/CameraScreen.dart';
+// // import 'package:flutter/material.dart';
 
-import 'dart:convert';
+// // void main() {
+// //   WidgetsFlutterBinding.ensureInitialized();
+// //   runApp(const MyApp());
+// // }
+
+// // class MyApp extends StatelessWidget {
+// //   const MyApp({Key? key}) : super(key: key);
+
+// //   // This widget is the root of your application.
+// //   @override
+// //   Widget build(BuildContext context) {
+// //     return MaterialApp(
+// //       title: 'Flutter Demo',
+// //       theme: ThemeData(
+// //         // This is the theme of your application.
+// //         //
+// //         // Try running your application with "flutter run". You'll see the
+// //         // application has a blue toolbar. Then, without quitting the app, try
+// //         // changing the primarySwatch below to Colors.green and then invoke
+// //         // "hot reload" (press "r" in the console where you ran "flutter run",
+// //         // or simply save your changes to "hot reload" in a Flutter IDE).
+// //         // Notice that the counter didn't reset back to zero; the application
+// //         // is not restarted.
+// //         primarySwatch: Colors.blue,
+// //       ),
+// //       home: const CameraScreen(),
+// //     );
+// //   }
+// // }
+
+// import 'dart:async';
+// import 'dart:io';
+
+// import 'package:cam_scanner/Screen/display.dart';
+// import 'package:camera/camera.dart';
+// import 'package:flutter/material.dart';
+// import 'package:path/path.dart' show join;
+// import 'package:path_provider/path_provider.dart';
+
+// Future<void> main() async {
+//   final cameras = await availableCameras();
+
+//   final firstCamera = cameras.first;
+
+//   runApp(
+//     MaterialApp(
+//       theme: ThemeData(primarySwatch: Colors.pink),
+//       home: Camera(
+//         camera: firstCamera,
+//       ),
+//     ),
+//   );
+// }
+
+// class Camera extends StatefulWidget {
+//   final CameraDescription camera;
+
+//   const Camera({
+//     Key? key,
+//     required this.camera,
+//   }) : super(key: key);
+
+//   @override
+//   CameraState createState() => CameraState();
+// }
+
+// class CameraState extends State<Camera> {
+//   late CameraController _controller;
+//   late Future<void> _initializeControllerFuture;
+
+//   @override
+//   void initState() {
+//     super.initState();
+//     _controller = CameraController(
+//       widget.camera,
+//       ResolutionPreset.medium,
+//     );
+
+//     _initializeControllerFuture = _controller.initialize();
+//   }
+
+//   @override
+//   void dispose() {
+//     _controller.dispose();
+//     super.dispose();
+//   }
+
+//   @override
+//   Widget build(BuildContext context) {
+//     return Scaffold(
+//       appBar: AppBar(title: Text('Take a Picture')),
+//       body: FutureBuilder<void>(
+//         future: _initializeControllerFuture,
+//         builder: (context, snapshot) {
+//           if (snapshot.connectionState == ConnectionState.done) {
+//             return CameraPreview(_controller);
+//           } else {
+//             return Center(child: CircularProgressIndicator());
+//           }
+//         },
+//       ),
+//       floatingActionButton: FloatingActionButton(
+//         child: Icon(Icons.camera_alt),
+//         onPressed: () async {
+//           try {
+//             await _initializeControllerFuture;
+
+//             final path = join(
+//               (await getTemporaryDirectory()).path,
+//               '${DateTime.now()}.png',
+//             );
+
+//             await _controller.takePicture();
+
+//             Navigator.push(
+//               context,
+//               MaterialPageRoute(
+//                 builder: (context) => DisplayPicture(imagePath: path),
+//               ),
+//             );
+//           } catch (e) {
+//             print(e);
+//           }
+//         },
+//       ),
+//     );
+//   }
+// }
+
+// Copyright 2013 The Flutter Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+// ignore_for_file: public_member_api_docs
+
+import 'dart:async';
 import 'dart:io';
-import 'dart:math';
-import 'package:cam_scanner/fileexplorer.dart';
-import 'package:google_fonts/google_fonts.dart';
+
+import 'package:cam_scanner/Screen/display.dart';
+import 'package:camera/camera.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:logging/logging.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:permission_handler/permission_handler.dart';
-import 'package:scanbot_sdk/barcode_scanning_data.dart';
-import 'package:scanbot_sdk/common_data.dart';
-import 'package:scanbot_sdk/document_scan_data.dart';
-import 'package:scanbot_sdk/ehic_scanning_data.dart';
-import 'package:scanbot_sdk/mrz_scanning_data.dart';
-import 'package:scanbot_sdk/scanbot_sdk.dart';
-import 'package:scanbot_sdk/scanbot_sdk_models.dart';
-import 'package:scanbot_sdk/scanbot_sdk_ui.dart';
-import 'package:cam_scanner/ui/barcode_preview.dart';
-import 'package:cam_scanner/ui/preview_document_widget.dart';
-import 'package:cam_scanner/ui/progress_dialog.dart';
+import 'package:video_player/video_player.dart';
 
-import 'pages_repository.dart';
-import 'ui/menu_items.dart';
-import 'ui/utils.dart';
-import 'package:dcdg/dcdg.dart';
-
-/// true - if you need to enable encryption for example app
-bool shouldInitWithEncryption = false;
-
-void main() => runApp(MyApp());
-
-// TODO add the Scanbot SDK license key here.
-// Please note: The Scanbot SDK will run without a license key for one minute per session!
-// After the trial period is over all Scanbot SDK functions as well as the UI components will stop working
-// or may be terminated. You can get an unrestricted "no-strings-attached" 30 day trial license key for free.
-// Please submit the trial license form (https://scanbot.io/en/sdk/demo/trial) on our website by using
-// the app identifier "io.scanbot.example.sdk.flutter" of this example app or of your app.
-const SCANBOT_SDK_LICENSE_KEY = "Sud7JuFmn4i4IPo2PwzZ+bcw4WM1jG" +
-    "3J8jZHo3dl5QE7l7z1aV6JmnSxctQ8" +
-    "kSMM6DH0EMJoOmVgOyPGEf1N7uhgOS" +
-    "ePt96ya1fw1xGWpn9onnsZDokIxkzx" +
-    "q44+zU9YItCW6ltKEM//Ufo1JrDbuM" +
-    "hefkqD5a6wRzZDDfLWvW9AEIH52utx" +
-    "dL3/NC2dwYOkZhNLNn5gs4bTE26CDG" +
-    "JcFhireHEzWew3tOBx6N28JPzaH72B" +
-    "/UTk4sjCgrzjWxLdelaRrMhmLceqQ3" +
-    "Vlsm5iVHe+1LdOSrjOgb7ydOp/cISj" +
-    "NROz3A/xUUXt2hE+tgI/mhnCRUQ0LU" +
-    "ZLVyFjpdrvcA==\nU2NhbmJvdFNESw" +
-    "pjb20uZXhhbXBsZS5zY2FuYm90X29u" +
-    "ZXNjYW5fZmx1dHRlcgoxNjIzMTEwMz" +
-    "k5CjExNTU2NzgKMw==\n";
-
-Future<void> _initScanbotSdk() async {
-  // Consider adjusting this optional storageBaseDirectory - see the comments below.
-  final customStorageBaseDirectory = await getDemoStorageBaseDirectory();
-
-  final encryptionParams = _getEncryptionParams();
-
-  var config = ScanbotSdkConfig(
-      loggingEnabled: true,
-      // Consider switching logging OFF in production builds for security and performance reasons.
-      licenseKey: SCANBOT_SDK_LICENSE_KEY,
-      imageFormat: ImageFormat.JPG,
-      imageQuality: 80,
-      storageBaseDirectory: customStorageBaseDirectory,
-      documentDetectorMode: DocumentDetectorMode.ML_BASED,
-      encryptionParameters: encryptionParams);
-  try {
-    await ScanbotSdk.initScanbotSdk(config);
-    await PageRepository().loadPages();
-  } catch (e) {
-    Logger.root.severe(e);
+class CameraExampleHome extends StatefulWidget {
+  @override
+  _CameraExampleHomeState createState() {
+    return _CameraExampleHomeState();
   }
 }
 
-EncryptionParameters? _getEncryptionParams() {
-  EncryptionParameters? encryptionParams;
-  if (shouldInitWithEncryption) {
-    encryptionParams = EncryptionParameters(
-      password: 'SomeSecretPa\$\$w0rdForFileEncryption',
-      mode: FileEncryptionMode.AES256,
-    );
+/// Returns a suitable camera icon for [direction].
+IconData getCameraLensIcon(CameraLensDirection direction) {
+  switch (direction) {
+    case CameraLensDirection.back:
+      return Icons.camera_rear;
+    case CameraLensDirection.front:
+      return Icons.camera_front;
+    case CameraLensDirection.external:
+      return Icons.camera;
+    default:
+      throw ArgumentError('Unknown lens direction');
   }
-  return encryptionParams;
 }
 
-Future<String> getDemoStorageBaseDirectory() async {
-  // !! Please note !!
-  // It is strongly recommended to use the default (secure) storage location of the Scanbot SDK.
-  // However, for demo purposes we overwrite the "storageBaseDirectory" of the Scanbot SDK by a custom storage directory.
-  //
-  // On Android we use the "ExternalStorageDirectory" which is a public(!) folder.
-  // All image files and export files (PDF, TIFF, etc) created by the Scanbot SDK in this demo app will be stored
-  // in this public storage directory and will be accessible for every(!) app having external storage permissions!
-  // Again, this is only for demo purposes, which allows us to easily fetch and check the generated files
-  // via Android "adb" CLI tools, Android File Transfer app, Android Studio, etc.
-  //
-  // On iOS we use the "ApplicationDocumentsDirectory" which is accessible via iTunes file sharing.
-  //
-  // For more details about the storage system of the Scanbot SDK Flutter Plugin please see our docs:
-  // - https://scanbotsdk.github.io/documentation/flutter/
-  //
-  // For more details about the file system on Android and iOS we also recommend to check out:
-  // - https://developer.android.com/guide/topics/data/data-storage
-  // - https://developer.apple.com/library/archive/documentation/FileManagement/Conceptual/FileSystemProgrammingGuide/FileSystemOverview/FileSystemOverview.html
-
-  Directory storageDirectory;
-  if (Platform.isAndroid) {
-    storageDirectory = (await getExternalStorageDirectory())!;
-  } else if (Platform.isIOS) {
-    storageDirectory = await getApplicationDocumentsDirectory();
+void logError(String code, String? message) {
+  if (message != null) {
+    print('Error: $code\nError Message: $message');
   } else {
-    throw ('Unsupported platform');
-  }
-
-  return '${storageDirectory.path}/my-custom-storage';
-}
-
-class MyApp extends StatefulWidget {
-  @override
-  _MyAppState createState() {
-    _initScanbotSdk();
-    return _MyAppState();
+    print('Error: $code');
   }
 }
 
-class _MyAppState extends State<MyApp> {
+class _CameraExampleHomeState extends State<CameraExampleHome>
+    with WidgetsBindingObserver, TickerProviderStateMixin {
+  CameraController? controller;
+  XFile? imageFile;
+  XFile? videoFile;
+  VideoPlayerController? videoController;
+  VoidCallback? videoPlayerListener;
+  bool enableAudio = true;
+  double _minAvailableExposureOffset = 0.0;
+  double _maxAvailableExposureOffset = 0.0;
+  double _currentExposureOffset = 0.0;
+  late AnimationController _flashModeControlRowAnimationController;
+  late Animation<double> _flashModeControlRowAnimation;
+  late AnimationController _exposureModeControlRowAnimationController;
+  late Animation<double> _exposureModeControlRowAnimation;
+  late AnimationController _focusModeControlRowAnimationController;
+  late Animation<double> _focusModeControlRowAnimation;
+  double _minAvailableZoom = 1.0;
+  double _maxAvailableZoom = 1.0;
+  double _currentScale = 1.0;
+  double _baseScale = 1.0;
+
+  // Counting pointers (number of user fingers on screen)
+  int _pointers = 0;
+
   @override
   void initState() {
     super.initState();
-  }
+    _ambiguate(WidgetsBinding.instance)?.addObserver(this);
 
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      theme: new ThemeData(canvasColor: Colors.white),
-      home: MainPageWidget(),
-      debugShowCheckedModeBanner: false,
+    _flashModeControlRowAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+    _flashModeControlRowAnimation = CurvedAnimation(
+      parent: _flashModeControlRowAnimationController,
+      curve: Curves.easeInCubic,
+    );
+    _exposureModeControlRowAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+    _exposureModeControlRowAnimation = CurvedAnimation(
+      parent: _exposureModeControlRowAnimationController,
+      curve: Curves.easeInCubic,
+    );
+    _focusModeControlRowAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+    _focusModeControlRowAnimation = CurvedAnimation(
+      parent: _focusModeControlRowAnimationController,
+      curve: Curves.easeInCubic,
     );
   }
-}
-
-class MainPageWidget extends StatefulWidget {
-  @override
-  _MainPageWidgetState createState() => _MainPageWidgetState();
-}
-
-class _MainPageWidgetState extends State<MainPageWidget> {
-  final PageRepository _pageRepository = PageRepository();
 
   @override
-  void initState() {
-    super.initState();
-    // add some custom init code here
+  void dispose() {
+    _ambiguate(WidgetsBinding.instance)?.removeObserver(this);
+    _flashModeControlRowAnimationController.dispose();
+    _exposureModeControlRowAnimationController.dispose();
+    super.dispose();
   }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final CameraController? cameraController = controller;
+
+    // App state changed before we got the chance to initialize.
+    if (cameraController == null || !cameraController.value.isInitialized) {
+      return;
+    }
+
+    if (state == AppLifecycleState.inactive) {
+      cameraController.dispose();
+    } else if (state == AppLifecycleState.resumed) {
+      onNewCameraSelected(cameraController.description);
+    }
+  }
+
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      drawer: Drawer(
-        // Add a ListView to the drawer. This ensures the user can scroll
-        // through the options in the drawer if there isn't enough vertical
-        // space to fit everything.
-        child: ListView(
-          // Important: Remove any padding from the ListView.
-          padding: EdgeInsets.zero,
+      key: _scaffoldKey,
+      appBar: AppBar(
+        title: const Text('Camera example'),
+      ),
+      body: Column(
+        children: <Widget>[
+          Expanded(
+            child: Container(
+              child: Padding(
+                padding: const EdgeInsets.all(1.0),
+                child: Center(
+                  child: _cameraPreviewWidget(),
+                ),
+              ),
+              decoration: BoxDecoration(
+                color: Colors.black,
+                border: Border.all(
+                  color:
+                      controller != null && controller!.value.isRecordingVideo
+                          ? Colors.redAccent
+                          : Colors.grey,
+                  width: 3.0,
+                ),
+              ),
+            ),
+          ),
+          _captureControlRowWidget(),
+          _modeControlRowWidget(),
+          Padding(
+            padding: const EdgeInsets.all(5.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.start,
+              children: <Widget>[
+                _cameraTogglesRowWidget(),
+                _thumbnailWidget(),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Display the preview from the camera (or a message if the preview is not available).
+  Widget _cameraPreviewWidget() {
+    final CameraController? cameraController = controller;
+
+    if (cameraController == null || !cameraController.value.isInitialized) {
+      return const Text(
+        'Tap a camera',
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 24.0,
+          fontWeight: FontWeight.w900,
+        ),
+      );
+    } else {
+      return Listener(
+        onPointerDown: (_) => _pointers++,
+        onPointerUp: (_) => _pointers--,
+        child: CameraPreview(
+          controller!,
+          child: LayoutBuilder(
+              builder: (BuildContext context, BoxConstraints constraints) {
+            return GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onScaleStart: _handleScaleStart,
+              onScaleUpdate: _handleScaleUpdate,
+              onTapDown: (TapDownDetails details) =>
+                  onViewFinderTap(details, constraints),
+            );
+          }),
+        ),
+      );
+    }
+  }
+
+  void _handleScaleStart(ScaleStartDetails details) {
+    _baseScale = _currentScale;
+  }
+
+  Future<void> _handleScaleUpdate(ScaleUpdateDetails details) async {
+    // When there are not exactly two fingers on screen don't scale
+    if (controller == null || _pointers != 2) {
+      return;
+    }
+
+    _currentScale = (_baseScale * details.scale)
+        .clamp(_minAvailableZoom, _maxAvailableZoom);
+
+    await controller!.setZoomLevel(_currentScale);
+  }
+
+  /// Display the thumbnail of the captured image or video.
+  Widget _thumbnailWidget() {
+    final VideoPlayerController? localVideoController = videoController;
+
+    return Expanded(
+      child: Align(
+        alignment: Alignment.centerRight,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            DrawerHeader(
-              child: Column(
-                children: [
-                  Text(
-                    "OneScan",
-                    style:
-                        GoogleFonts.pacifico(color: Colors.black, fontSize: 20),
-                  ),
-                  Container(
-                    height: 102,
-                    child: Image.asset(
-                      'assets/images/pic.png',
-                    ),
-                  ),
-                ],
-              ),
-              decoration: BoxDecoration(color: Colors.white),
-            ),
-            ListTile(
-              title: Text(
-                'Open Recent Created PDFs',
-                style:
-                    TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
-              ),
-              onTap: () {
-                Navigator.pop(context);
-
-                Navigator.push(
-                    context, MaterialPageRoute(builder: (context) => FileEx()));
-                // ...
-              },
-            ),
-            ListTile(
-              title: Text(
-                'About App',
-                style:
-                    TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
-              ),
-              onTap: () {
-                Navigator.pop(context);
-                showDialog(
-                    context: (context),
-                    builder: (context) {
-                      return AlertDialog(
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(20)),
-                        content: Container(
-                          width: MediaQuery.of(context).size.width,
-                          height: 140,
-                          child: Column(
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  FittedBox(
-                                    fit: BoxFit.fitWidth,
-                                    child: Text(
-                                      "One",
-                                      style: GoogleFonts.pacifico(
-                                          color: Colors.black, fontSize: 25),
-                                    ),
-                                  ),
-                                  FittedBox(
-                                    fit: BoxFit.fitWidth,
-                                    child: Text(
-                                      "Scan",
-                                      style: GoogleFonts.pacifico(
-                                          color: Colors.black, fontSize: 25),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              SizedBox(
-                                height: 8,
-                              ),
-                              FittedBox(
-                                fit: BoxFit.fitWidth,
-                                child: Text(
-                                  'Version 1.0',
-                                ),
-                              ),
-                              SizedBox(
-                                height: 8,
-                              ),
-                              FittedBox(
-                                fit: BoxFit.fitWidth,
-                                child: Text(
-                                  'All In One Document Scanner',
-                                  style: TextStyle(
-                                      fontFamily: 'Montserrat',
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 14,
-                                      color: Theme.of(context).accentColor),
-                                ),
-                              ),
-                              SizedBox(
-                                height: 8,
-                              ),
-                              FittedBox(
-                                fit: BoxFit.fitWidth,
-                                child: Text(
-                                  "Developed on Flutter",
-                                ),
-                              ),
-                            ],
-                          ),
+            if (localVideoController == null && imageFile == null)
+              Container()
+            else
+              SizedBox(
+                child: (localVideoController == null)
+                    ? (
+                        // The captured image on the web contains a network-accessible URL
+                        // pointing to a location within the browser. It may be displayed
+                        // either with Image.network or Image.memory after loading the image
+                        // bytes to memory.
+                        kIsWeb
+                            ? Image.network(imageFile!.path)
+                            : GestureDetector(
+                                onTap: () => {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                            builder: (context) =>
+                                                DisplayPicture(
+                                                    imagePaths:
+                                                        File(imageFile!.path))),
+                                      )
+                                    },
+                                child: Image.file(File(imageFile!.path))))
+                    : Container(
+                        child: Center(
+                          child: AspectRatio(
+                              aspectRatio:
+                                  localVideoController.value.size != null
+                                      ? localVideoController.value.aspectRatio
+                                      : 1.0,
+                              child: VideoPlayer(localVideoController)),
                         ),
-                      );
-                    });
+                        decoration: BoxDecoration(
+                            border: Border.all(color: Colors.pink)),
+                      ),
+                width: 64.0,
+                height: 64.0,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
 
-                // ...
-              },
+  /// Display a bar with buttons to change the flash and exposure modes
+  Widget _modeControlRowWidget() {
+    return Column(
+      children: <Widget>[
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          mainAxisSize: MainAxisSize.max,
+          children: <Widget>[
+            IconButton(
+              icon: const Icon(Icons.flash_on),
+              color: Colors.blue,
+              onPressed: controller != null ? onFlashModeButtonPressed : null,
+            ),
+            // The exposure and focus mode are currently not supported on the web.
+            ...!kIsWeb
+                ? <Widget>[
+                    IconButton(
+                      icon: const Icon(Icons.exposure),
+                      color: Colors.blue,
+                      onPressed: controller != null
+                          ? onExposureModeButtonPressed
+                          : null,
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.filter_center_focus),
+                      color: Colors.blue,
+                      onPressed:
+                          controller != null ? onFocusModeButtonPressed : null,
+                    )
+                  ]
+                : <Widget>[],
+            IconButton(
+              icon: Icon(enableAudio ? Icons.volume_up : Icons.volume_mute),
+              color: Colors.blue,
+              onPressed: controller != null ? onAudioModeButtonPressed : null,
+            ),
+            IconButton(
+              icon: Icon(controller?.value.isCaptureOrientationLocked ?? false
+                  ? Icons.screen_lock_rotation
+                  : Icons.screen_rotation),
+              color: Colors.blue,
+              onPressed: controller != null
+                  ? onCaptureOrientationLockButtonPressed
+                  : null,
+            ),
+          ],
+        ),
+        _flashModeControlRowWidget(),
+        _exposureModeControlRowWidget(),
+        _focusModeControlRowWidget(),
+      ],
+    );
+  }
+
+  Widget _flashModeControlRowWidget() {
+    return SizeTransition(
+      sizeFactor: _flashModeControlRowAnimation,
+      child: ClipRect(
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          mainAxisSize: MainAxisSize.max,
+          children: <Widget>[
+            IconButton(
+              icon: const Icon(Icons.flash_off),
+              color: controller?.value.flashMode == FlashMode.off
+                  ? Colors.orange
+                  : Colors.blue,
+              onPressed: controller != null
+                  ? () => onSetFlashModeButtonPressed(FlashMode.off)
+                  : null,
+            ),
+            IconButton(
+              icon: const Icon(Icons.flash_auto),
+              color: controller?.value.flashMode == FlashMode.auto
+                  ? Colors.orange
+                  : Colors.blue,
+              onPressed: controller != null
+                  ? () => onSetFlashModeButtonPressed(FlashMode.auto)
+                  : null,
+            ),
+            IconButton(
+              icon: const Icon(Icons.flash_on),
+              color: controller?.value.flashMode == FlashMode.always
+                  ? Colors.orange
+                  : Colors.blue,
+              onPressed: controller != null
+                  ? () => onSetFlashModeButtonPressed(FlashMode.always)
+                  : null,
+            ),
+            IconButton(
+              icon: const Icon(Icons.highlight),
+              color: controller?.value.flashMode == FlashMode.torch
+                  ? Colors.orange
+                  : Colors.blue,
+              onPressed: controller != null
+                  ? () => onSetFlashModeButtonPressed(FlashMode.torch)
+                  : null,
             ),
           ],
         ),
       ),
-      appBar: AppBar(
-        iconTheme: IconThemeData(color: Colors.black),
-        elevation: 0.0,
-        actions: [],
-        backgroundColor: Colors.white,
-        title: Text(
-          'OneScan',
-          style: GoogleFonts.pacifico(color: Colors.black, fontSize: 30),
-        ),
-      ),
-      body: Container(
-        color: Colors.white,
+    );
+  }
+
+  Widget _exposureModeControlRowWidget() {
+    final ButtonStyle styleAuto = TextButton.styleFrom(
+      primary: controller?.value.exposureMode == ExposureMode.auto
+          ? Colors.orange
+          : Colors.blue,
+    );
+    final ButtonStyle styleLocked = TextButton.styleFrom(
+      primary: controller?.value.exposureMode == ExposureMode.locked
+          ? Colors.orange
+          : Colors.blue,
+    );
+
+    return SizeTransition(
+      sizeFactor: _exposureModeControlRowAnimation,
+      child: ClipRect(
         child: Container(
+          color: Colors.grey.shade50,
           child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(top: 15.0),
-                child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      InkWell(
-                        onTap: () {
-                          showModalBottomSheet<void>(
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(25.0),
-                            ),
-                            context: context,
-                            builder: (BuildContext context) {
-                              return Container(
-                                decoration: BoxDecoration(
-                                  color: Color(0xfffdfcfa),
-                                  borderRadius: BorderRadius.only(
-                                      topLeft: const Radius.circular(25.0),
-                                      topRight: const Radius.circular(25.0)),
-                                ),
-                                height: 200,
-                                child: ListView(
-                                  children: [
-                                    MenuItemWidget(
-                                      "Document Scanner",
-                                      endIcon: Icons.arrow_forward,
-                                      onTap: () {
-                                        _startDocumentScanning();
-                                      },
-                                    ),
-                                    MenuItemWidget(
-                                      "MRZ Scanner",
-                                      endIcon: Icons.arrow_forward,
-                                      onTap: () {
-                                        _startMRZScanner();
-                                      },
-                                    ),
-                                  ],
-                                ),
-                              );
-                            },
-                          );
-                        },
-                        child: Column(
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.all(8.0),
-                              child: Container(
-                                child: Image.asset(
-                                  'assets/images/scan.gif',
-                                ),
-                                decoration: BoxDecoration(
-                                  borderRadius:
-                                      BorderRadius.all(Radius.circular(20)),
-                                ),
-                                width: 90,
-                                height: 90,
-                              ),
-                            ),
-                            Text(
-                              "Scan",
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            )
-                          ],
-                        ),
-                      ),
-                      InkWell(
-                        onTap: () {
-                          _startQRScanner();
-                        },
-                        child: Column(
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.all(8.0),
-                              child: Container(
-                                child: Image.asset(
-                                  'assets/images/qr.gif',
-                                ),
-                                decoration: BoxDecoration(
-                                  borderRadius:
-                                      BorderRadius.all(Radius.circular(20)),
-                                ),
-                                width: 90,
-                                height: 90,
-                              ),
-                            ),
-                            Text(
-                              "QR Scan ",
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            )
-                          ],
-                        ),
-                      ),
-                    ]),
+            children: <Widget>[
+              const Center(
+                child: Text('Exposure Mode'),
               ),
-              Padding(
-                padding: const EdgeInsets.only(top: 20.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    InkWell(
-                      onTap: () {
-                        showModalBottomSheet<void>(
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(25.0),
-                          ),
-                          context: context,
-                          builder: (BuildContext context) {
-                            return Container(
-                              decoration: BoxDecoration(
-                                color: Color(0xfffdfcfa),
-                                borderRadius: BorderRadius.only(
-                                    topLeft: const Radius.circular(25.0),
-                                    topRight: const Radius.circular(25.0)),
-                              ),
-                              height: 200,
-                              child: ListView(
-                                children: [
-                                  MenuItemWidget(
-                                    "Single Barcode Scan",
-                                    endIcon: Icons.arrow_forward,
-                                    onTap: () {
-                                      _startBarcodeScanner();
-                                    },
-                                  ),
-                                  MenuItemWidget(
-                                    "Batch Barcode Scan",
-                                    endIcon: Icons.arrow_forward,
-                                    onTap: () {
-                                      _startBatchBarcodeScanner();
-                                    },
-                                  ),
-                                  MenuItemWidget(
-                                    " Detect Barcode On Image",
-                                    endIcon: Icons.arrow_forward,
-                                    onTap: () {
-                                      _detectBarcodeOnImage();
-                                    },
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
-                        );
-                      },
-                      child: Column(
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: Container(
-                              child: Image.asset(
-                                'assets/images/tenor.gif',
-                              ),
-                              decoration: BoxDecoration(
-                                borderRadius:
-                                    BorderRadius.all(Radius.circular(20)),
-                              ),
-                              width: 90,
-                              height: 90,
-                            ),
-                          ),
-                          Text(
-                            "Barcode",
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          )
-                        ],
-                      ),
-                    ),
-                    InkWell(
-                      onTap: () {
-                        _importImage();
-                      },
-                      child: Column(
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: Container(
-                              child: Image.asset(
-                                'assets/images/gallery.gif',
-                              ),
-                              decoration: BoxDecoration(
-                                borderRadius:
-                                    BorderRadius.all(Radius.circular(20)),
-                              ),
-                              width: 90,
-                              height: 90,
-                            ),
-                          ),
-                          Text(
-                            "Import Image",
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          )
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.all(15.0),
-                    child: Padding(
-                      padding: const EdgeInsets.only(top: 20.0),
-                      child: InkWell(
-                        onTap: () {
-                          _gotoImagesView();
-                        },
-                        child: Container(
-                          child: Image.asset(
-                            'assets/images/doc.gif',
-                          ),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(25),
-                            color: Colors.white70,
-                          ),
-                          height: 90,
-                          width: MediaQuery.of(context).size.width,
-                        ),
-                      ),
-                    ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                mainAxisSize: MainAxisSize.max,
+                children: <Widget>[
+                  TextButton(
+                    child: const Text('AUTO'),
+                    style: styleAuto,
+                    onPressed: controller != null
+                        ? () =>
+                            onSetExposureModeButtonPressed(ExposureMode.auto)
+                        : null,
+                    onLongPress: () {
+                      if (controller != null) {
+                        controller!.setExposurePoint(null);
+                        showInSnackBar('Resetting exposure point');
+                      }
+                    },
                   ),
-                  Text(
-                    "View Image Results",
-                    style: TextStyle(fontWeight: FontWeight.bold),
+                  TextButton(
+                    child: const Text('LOCKED'),
+                    style: styleLocked,
+                    onPressed: controller != null
+                        ? () =>
+                            onSetExposureModeButtonPressed(ExposureMode.locked)
+                        : null,
                   ),
-                  Container(
-                    height: 200,
-                    child: Image.asset(
-                      'assets/images/pic.png',
-                    ),
-                  )
+                  TextButton(
+                    child: const Text('RESET OFFSET'),
+                    style: styleLocked,
+                    onPressed: controller != null
+                        ? () => controller!.setExposureOffset(0.0)
+                        : null,
+                  ),
                 ],
-              )
+              ),
+              const Center(
+                child: Text('Exposure Offset'),
+              ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                mainAxisSize: MainAxisSize.max,
+                children: <Widget>[
+                  Text(_minAvailableExposureOffset.toString()),
+                  Slider(
+                    value: _currentExposureOffset,
+                    min: _minAvailableExposureOffset,
+                    max: _maxAvailableExposureOffset,
+                    label: _currentExposureOffset.toString(),
+                    onChanged: _minAvailableExposureOffset ==
+                            _maxAvailableExposureOffset
+                        ? null
+                        : setExposureOffset,
+                  ),
+                  Text(_maxAvailableExposureOffset.toString()),
+                ],
+              ),
             ],
           ),
         ),
@@ -541,337 +596,595 @@ class _MainPageWidgetState extends State<MainPageWidget> {
     );
   }
 
-  Future<void> _getOcrConfigs() async {
-    try {
-      final result = await ScanbotSdk.getOcrConfigs();
-      await showAlertDialog(context, jsonEncode(result), title: 'OCR Configs');
-    } catch (e) {
-      Logger.root.severe(e);
-      await showAlertDialog(context, 'Error getting license status');
-    }
-  }
-
-  Future<void> _getLicenseStatus() async {
-    try {
-      final result = await ScanbotSdk.getLicenseStatus();
-      await showAlertDialog(context, jsonEncode(result),
-          title: 'License Status');
-    } catch (e) {
-      Logger.root.severe(e);
-      await showAlertDialog(context, 'Error getting OCR configs');
-    }
-  }
-
-  Future<void> _importImage() async {
-    try {
-      final image = await ImagePicker().getImage(source: ImageSource.gallery);
-      await _createPage(Uri.file(image?.path ?? ''));
-      await _gotoImagesView();
-    } catch (e) {
-      Logger.root.severe(e);
-    }
-  }
-
-  Future<void> _createPage(Uri uri) async {
-    if (!await checkLicenseStatus(context)) {
-      return;
-    }
-
-    final dialog = ProgressDialog(context,
-        type: ProgressDialogType.Normal, isDismissible: false);
-    dialog.style(message: 'Processing');
-    dialog.show();
-    try {
-      var page = await ScanbotSdk.createPage(uri, false);
-      page = await ScanbotSdk.detectDocument(page);
-      await _pageRepository.addPage(page);
-    } catch (e) {
-      Logger.root.severe(e);
-    } finally {
-      await dialog.hide();
-    }
-  }
-
-  Future<void> _startDocumentScanning() async {
-    if (!await checkLicenseStatus(context)) {
-      return;
-    }
-
-    DocumentScanningResult? result;
-    try {
-      var config = DocumentScannerConfiguration(
-        bottomBarBackgroundColor: Colors.blue,
-        ignoreBadAspectRatio: true,
-        multiPageEnabled: true,
-        //maxNumberOfPages: 3,
-        //flashEnabled: true,
-        //autoSnappingSensitivity: 0.7,
-        cameraPreviewMode: CameraPreviewMode.FIT_IN,
-        orientationLockMode: CameraOrientationMode.PORTRAIT,
-        //documentImageSizeLimit: Size(2000, 3000),
-        cancelButtonTitle: 'Cancel',
-        pageCounterButtonTitle: '%d Page(s)',
-        textHintOK: "Perfect, don't move...",
-        //textHintNothingDetected: "Nothing",
-        // ...
-      );
-      result = await ScanbotSdkUi.startDocumentScanner(config);
-    } catch (e) {
-      Logger.root.severe(e);
-    }
-    if (result != null) {
-      if (isOperationSuccessful(result)) {
-        await _pageRepository.addPages(result.pages);
-        await _gotoImagesView();
-      }
-    }
-  }
-
-  Future<void> _startBarcodeScanner() async {
-    if (!await checkLicenseStatus(context)) {
-      return;
-    }
-
-    try {
-      var config = BarcodeScannerConfiguration(
-        topBarBackgroundColor: Colors.blue,
-        finderTextHint:
-            'Please align any supported barcode in the frame to scan it.',
-        // ...
-      );
-      var result = await ScanbotSdkUi.startBarcodeScanner(config);
-      await _showBarcodeScanningResult(result);
-    } catch (e) {
-      Logger.root.severe(e);
-    }
-  }
-
-  Future<void> _startBatchBarcodeScanner() async {
-    if (!await checkLicenseStatus(context)) {
-      return;
-    }
-    try {
-      //var config = BarcodeScannerConfiguration(); // testing default configs
-      var config = BatchBarcodeScannerConfiguration(
-          barcodeFormatter: (item) async {
-            final random = Random();
-            final randomNumber = random.nextInt(4) + 2;
-            await Future.delayed(Duration(seconds: randomNumber));
-            return BarcodeFormattedData(
-                title: item.barcodeFormat.toString(),
-                subtitle: (item.text ?? '') + 'custom string');
-          },
-          topBarBackgroundColor: Colors.blueAccent,
-          topBarButtonsColor: Colors.white70,
-          cameraOverlayColor: Colors.black26,
-          finderLineColor: Colors.red,
-          finderTextHintColor: Colors.white,
-          cancelButtonTitle: 'Cancel',
-          enableCameraButtonTitle: 'camera enable',
-          enableCameraExplanationText: 'explanation text',
-          finderTextHint:
-              'Please align any supported barcode in the frame to scan it.',
-          // clearButtonTitle: "CCCClear",
-          // submitButtonTitle: "Submitt",
-          barcodesCountText: '%d codes',
-          fetchingStateText: 'might be not needed',
-          noBarcodesTitle: 'nothing to see here',
-          barcodesCountTextColor: Colors.white,
-          finderAspectRatio: FinderAspectRatio(width: 3, height: 2),
-          topBarButtonsInactiveColor: Colors.white,
-          detailsActionColor: Colors.white,
-          detailsBackgroundColor: Colors.blueAccent,
-          detailsPrimaryColor: Colors.white,
-          finderLineWidth: 7,
-          successBeepEnabled: true,
-          // flashEnabled: true,
-          orientationLockMode: CameraOrientationMode.PORTRAIT,
-          barcodeFormats: PredefinedBarcodes.allBarcodeTypes(),
-          cancelButtonHidden: false);
-
-      final result = await ScanbotSdkUi.startBatchBarcodeScanner(config);
-      if (result.operationResult == OperationResult.SUCCESS) {
-        await Navigator.of(context).push(
-          MaterialPageRoute(
-              builder: (context) => BarcodesResultPreviewWidget(result)),
-        );
-      }
-    } catch (e) {
-      Logger.root.severe(e);
-    }
-  }
-
-  Future<void> _detectBarcodeOnImage() async {
-    if (!await checkLicenseStatus(context)) {
-      return;
-    }
-    try {
-      var image = await ImagePicker().getImage(source: ImageSource.gallery);
-
-      ///before processing image sdk need storage read permission
-
-      final permissions =
-          await [Permission.storage, Permission.photos].request();
-      if (permissions[Permission.storage] ==
-              PermissionStatus.granted || //android
-          permissions[Permission.photos] == PermissionStatus.granted) {
-        //ios
-        var result = await ScanbotSdk.detectBarcodeFromImageFile(
-            Uri.file(image?.path ?? ''),
-            PredefinedBarcodes.allBarcodeTypes(),
-            true);
-        if (result.operationResult == OperationResult.SUCCESS) {
-          await Navigator.of(context).push(
-            MaterialPageRoute(
-                builder: (context) => BarcodesResultPreviewWidget(result)),
-          );
-        }
-      }
-    } catch (e) {
-      Logger.root.severe(e);
-    }
-  }
-
-  Future<void> estimateBlurriness() async {
-    if (!await checkLicenseStatus(context)) {
-      return;
-    }
-    try {
-      var image = await ImagePicker().getImage(source: ImageSource.gallery);
-
-      ///before processing an image the SDK need storage read permission
-
-      var permissions = await [Permission.storage, Permission.photos].request();
-      if (permissions[Permission.storage] ==
-              PermissionStatus.granted || //android
-          permissions[Permission.photos] == PermissionStatus.granted) {
-        //ios
-        var page =
-            await ScanbotSdk.createPage(Uri.file(image?.path ?? ''), true);
-        var result = await ScanbotSdk.estimateBlurOnPage(page);
-        // set up the button
-        showResultTextDialog('Blur value is :${result.toStringAsFixed(2)} ');
-      }
-    } catch (e) {
-      Logger.root.severe(e);
-    }
-  }
-
-  void showResultTextDialog(result) {
-    Widget okButton = TextButton(
-      onPressed: () => Navigator.pop(context),
-      child: Text('OK'),
+  Widget _focusModeControlRowWidget() {
+    final ButtonStyle styleAuto = TextButton.styleFrom(
+      primary: controller?.value.focusMode == FocusMode.auto
+          ? Colors.orange
+          : Colors.blue,
     );
-    // set up the AlertDialog
-    var alert = AlertDialog(
-      title: Text('Result'),
-      content: Text(result),
-      actions: [
-        okButton,
+    final ButtonStyle styleLocked = TextButton.styleFrom(
+      primary: controller?.value.focusMode == FocusMode.locked
+          ? Colors.orange
+          : Colors.blue,
+    );
+
+    return SizeTransition(
+      sizeFactor: _focusModeControlRowAnimation,
+      child: ClipRect(
+        child: Container(
+          color: Colors.grey.shade50,
+          child: Column(
+            children: <Widget>[
+              const Center(
+                child: Text('Focus Mode'),
+              ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                mainAxisSize: MainAxisSize.max,
+                children: <Widget>[
+                  TextButton(
+                    child: const Text('AUTO'),
+                    style: styleAuto,
+                    onPressed: controller != null
+                        ? () => onSetFocusModeButtonPressed(FocusMode.auto)
+                        : null,
+                    onLongPress: () {
+                      if (controller != null) {
+                        controller!.setFocusPoint(null);
+                      }
+                      showInSnackBar('Resetting focus point');
+                    },
+                  ),
+                  TextButton(
+                    child: const Text('LOCKED'),
+                    style: styleLocked,
+                    onPressed: controller != null
+                        ? () => onSetFocusModeButtonPressed(FocusMode.locked)
+                        : null,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Display the control bar with buttons to take pictures and record videos.
+  Widget _captureControlRowWidget() {
+    final CameraController? cameraController = controller;
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      mainAxisSize: MainAxisSize.max,
+      children: <Widget>[
+        IconButton(
+          icon: const Icon(Icons.camera_alt),
+          color: Colors.blue,
+          onPressed: cameraController != null &&
+                  cameraController.value.isInitialized &&
+                  !cameraController.value.isRecordingVideo
+              ? onTakePictureButtonPressed
+              : null,
+        ),
+        IconButton(
+          icon: const Icon(Icons.videocam),
+          color: Colors.blue,
+          onPressed: cameraController != null &&
+                  cameraController.value.isInitialized &&
+                  !cameraController.value.isRecordingVideo
+              ? onVideoRecordButtonPressed
+              : null,
+        ),
+        IconButton(
+          icon: cameraController != null &&
+                  cameraController.value.isRecordingPaused
+              ? const Icon(Icons.play_arrow)
+              : const Icon(Icons.pause),
+          color: Colors.blue,
+          onPressed: cameraController != null &&
+                  cameraController.value.isInitialized &&
+                  cameraController.value.isRecordingVideo
+              ? (cameraController.value.isRecordingPaused)
+                  ? onResumeButtonPressed
+                  : onPauseButtonPressed
+              : null,
+        ),
+        IconButton(
+          icon: const Icon(Icons.stop),
+          color: Colors.red,
+          onPressed: cameraController != null &&
+                  cameraController.value.isInitialized &&
+                  cameraController.value.isRecordingVideo
+              ? onStopButtonPressed
+              : null,
+        ),
+        IconButton(
+          icon: const Icon(Icons.pause_presentation),
+          color:
+              cameraController != null && cameraController.value.isPreviewPaused
+                  ? Colors.red
+                  : Colors.blue,
+          onPressed:
+              cameraController == null ? null : onPausePreviewButtonPressed,
+        ),
       ],
     );
+  }
 
-    // show the dialog
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return alert;
-      },
+  /// Display a row of toggle to select the camera (or a message if no camera is available).
+  Widget _cameraTogglesRowWidget() {
+    final List<Widget> toggles = <Widget>[];
+
+    final Null Function(CameraDescription? description) onChanged =
+        (CameraDescription? description) {
+      if (description == null) {
+        return;
+      }
+
+      onNewCameraSelected(description);
+    };
+
+    if (cameras.isEmpty) {
+      return const Text('No camera found');
+    } else {
+      for (final CameraDescription cameraDescription in cameras) {
+        toggles.add(
+          SizedBox(
+            width: 90.0,
+            child: RadioListTile<CameraDescription>(
+              title: Icon(getCameraLensIcon(cameraDescription.lensDirection)),
+              groupValue: controller?.description,
+              value: cameraDescription,
+              onChanged:
+                  controller != null && controller!.value.isRecordingVideo
+                      ? null
+                      : onChanged,
+            ),
+          ),
+        );
+      }
+    }
+
+    return Row(children: toggles);
+  }
+
+  String timestamp() => DateTime.now().millisecondsSinceEpoch.toString();
+
+  void showInSnackBar(String message) {
+    // ignore: deprecated_member_use
+    _scaffoldKey.currentState?.showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  void onViewFinderTap(TapDownDetails details, BoxConstraints constraints) {
+    if (controller == null) {
+      return;
+    }
+
+    final CameraController cameraController = controller!;
+
+    final Offset offset = Offset(
+      details.localPosition.dx / constraints.maxWidth,
+      details.localPosition.dy / constraints.maxHeight,
     );
+    cameraController.setExposurePoint(offset);
+    cameraController.setFocusPoint(offset);
   }
 
-  Future<void> _startQRScanner() async {
-    if (!await checkLicenseStatus(context)) {
-      return;
+  Future<void> onNewCameraSelected(CameraDescription cameraDescription) async {
+    if (controller != null) {
+      await controller!.dispose();
     }
+
+    final CameraController cameraController = CameraController(
+      cameraDescription,
+      kIsWeb ? ResolutionPreset.max : ResolutionPreset.medium,
+      enableAudio: enableAudio,
+      imageFormatGroup: ImageFormatGroup.jpeg,
+    );
+
+    controller = cameraController;
+
+    // If the controller is updated then update the UI.
+    cameraController.addListener(() {
+      if (mounted) {
+        setState(() {});
+      }
+      if (cameraController.value.hasError) {
+        showInSnackBar(
+            'Camera error ${cameraController.value.errorDescription}');
+      }
+    });
 
     try {
-      final config = BarcodeScannerConfiguration(
-        barcodeFormats: [BarcodeFormat.QR_CODE],
-        finderTextHint: 'Please align a QR code in the frame to scan it.',
-        // ...
-      );
-      final result = await ScanbotSdkUi.startBarcodeScanner(config);
-      await _showBarcodeScanningResult(result);
-    } catch (e) {
-      Logger.root.severe(e);
+      await cameraController.initialize();
+      await Future.wait(<Future<Object?>>[
+        // The exposure mode is currently not supported on the web.
+        ...!kIsWeb
+            ? <Future<Object?>>[
+                cameraController.getMinExposureOffset().then(
+                    (double value) => _minAvailableExposureOffset = value),
+                cameraController
+                    .getMaxExposureOffset()
+                    .then((double value) => _maxAvailableExposureOffset = value)
+              ]
+            : <Future<Object?>>[],
+        cameraController
+            .getMaxZoomLevel()
+            .then((double value) => _maxAvailableZoom = value),
+        cameraController
+            .getMinZoomLevel()
+            .then((double value) => _minAvailableZoom = value),
+      ]);
+    } on CameraException catch (e) {
+      _showCameraException(e);
+    }
+
+    if (mounted) {
+      setState(() {});
     }
   }
 
-  Future<void> _showBarcodeScanningResult(
-      final BarcodeScanningResult result) async {
-    if (result.operationResult == OperationResult.SUCCESS) {
-      await Navigator.of(context).push(
-        MaterialPageRoute(
-            builder: (context) => BarcodesResultPreviewWidget(result)),
-      );
-    }
-  }
-
-  Future<void> _startEhicScanner() async {
-    if (!await checkLicenseStatus(context)) {
-      return;
-    }
-
-    HealthInsuranceCardRecognitionResult? result;
-    try {
-      final config = HealthInsuranceScannerConfiguration(
-        topBarBackgroundColor: Colors.blue,
-        topBarButtonsColor: Colors.white70,
-        // ...
-      );
-      result = await ScanbotSdkUi.startEhicScanner(config);
-    } catch (e) {
-      Logger.root.severe(e);
-    }
-    if (result != null) {
-      if (isOperationSuccessful(result)) {
-        var concatenate = StringBuffer();
-        result.fields
-            .map((field) =>
-                "${field.type.toString().replaceAll("HealthInsuranceCardFieldType.", "")}:${field.value}\n")
-            .forEach((s) {
-          concatenate.write(s);
+  void onTakePictureButtonPressed() {
+    takePicture().then((XFile? file) {
+      if (mounted) {
+        setState(() {
+          imageFile = file;
+          videoController?.dispose();
+          videoController = null;
         });
-        await showAlertDialog(context, concatenate.toString());
+        if (file != null) {
+          showInSnackBar('Picture saved to ${file.path}');
+        }
       }
+    });
+  }
+
+  void onFlashModeButtonPressed() {
+    if (_flashModeControlRowAnimationController.value == 1) {
+      _flashModeControlRowAnimationController.reverse();
+    } else {
+      _flashModeControlRowAnimationController.forward();
+      _exposureModeControlRowAnimationController.reverse();
+      _focusModeControlRowAnimationController.reverse();
     }
   }
 
-  Future<void> _startMRZScanner() async {
-    if (!await checkLicenseStatus(context)) {
+  void onExposureModeButtonPressed() {
+    if (_exposureModeControlRowAnimationController.value == 1) {
+      _exposureModeControlRowAnimationController.reverse();
+    } else {
+      _exposureModeControlRowAnimationController.forward();
+      _flashModeControlRowAnimationController.reverse();
+      _focusModeControlRowAnimationController.reverse();
+    }
+  }
+
+  void onFocusModeButtonPressed() {
+    if (_focusModeControlRowAnimationController.value == 1) {
+      _focusModeControlRowAnimationController.reverse();
+    } else {
+      _focusModeControlRowAnimationController.forward();
+      _flashModeControlRowAnimationController.reverse();
+      _exposureModeControlRowAnimationController.reverse();
+    }
+  }
+
+  void onAudioModeButtonPressed() {
+    enableAudio = !enableAudio;
+    if (controller != null) {
+      onNewCameraSelected(controller!.description);
+    }
+  }
+
+  Future<void> onCaptureOrientationLockButtonPressed() async {
+    try {
+      if (controller != null) {
+        final CameraController cameraController = controller!;
+        if (cameraController.value.isCaptureOrientationLocked) {
+          await cameraController.unlockCaptureOrientation();
+          showInSnackBar('Capture orientation unlocked');
+        } else {
+          await cameraController.lockCaptureOrientation();
+          showInSnackBar(
+              'Capture orientation locked to ${cameraController.value.lockedCaptureOrientation.toString().split('.').last}');
+        }
+      }
+    } on CameraException catch (e) {
+      _showCameraException(e);
+    }
+  }
+
+  void onSetFlashModeButtonPressed(FlashMode mode) {
+    setFlashMode(mode).then((_) {
+      if (mounted) {
+        setState(() {});
+      }
+      showInSnackBar('Flash mode set to ${mode.toString().split('.').last}');
+    });
+  }
+
+  void onSetExposureModeButtonPressed(ExposureMode mode) {
+    setExposureMode(mode).then((_) {
+      if (mounted) {
+        setState(() {});
+      }
+      showInSnackBar('Exposure mode set to ${mode.toString().split('.').last}');
+    });
+  }
+
+  void onSetFocusModeButtonPressed(FocusMode mode) {
+    setFocusMode(mode).then((_) {
+      if (mounted) {
+        setState(() {});
+      }
+      showInSnackBar('Focus mode set to ${mode.toString().split('.').last}');
+    });
+  }
+
+  void onVideoRecordButtonPressed() {
+    startVideoRecording().then((_) {
+      if (mounted) {
+        setState(() {});
+      }
+    });
+  }
+
+  void onStopButtonPressed() {
+    stopVideoRecording().then((XFile? file) {
+      if (mounted) {
+        setState(() {});
+      }
+      if (file != null) {
+        showInSnackBar('Video recorded to ${file.path}');
+        videoFile = file;
+        _startVideoPlayer();
+      }
+    });
+  }
+
+  Future<void> onPausePreviewButtonPressed() async {
+    final CameraController? cameraController = controller;
+
+    if (cameraController == null || !cameraController.value.isInitialized) {
+      showInSnackBar('Error: select a camera first.');
       return;
     }
 
-    MrzScanningResult? result;
-    try {
-      final config = MrzScannerConfiguration(
-        topBarBackgroundColor: Colors.blue,
-      );
-      if (Platform.isIOS) {
-        config.finderAspectRatio = FinderAspectRatio(width: 3, height: 1);
-      }
-      result = await ScanbotSdkUi.startMrzScanner(config);
-    } catch (e) {
-      Logger.root.severe(e);
+    if (cameraController.value.isPreviewPaused) {
+      await cameraController.resumePreview();
+    } else {
+      await cameraController.pausePreview();
     }
 
-    if (result != null && isOperationSuccessful(result)) {
-      final concatenate = StringBuffer();
-      result.fields
-          .map((field) =>
-              "${field.name.toString().replaceAll("MRZFieldName.", "")}:${field.value}\n")
-          .forEach((s) {
-        concatenate.write(s);
-      });
-      await showAlertDialog(context, concatenate.toString());
+    if (mounted) {
+      setState(() {});
     }
   }
 
-  Future<dynamic> _gotoImagesView() async {
-    imageCache?.clear();
-    return await Navigator.of(context).push(
-      MaterialPageRoute(builder: (context) => DocumentPreview()),
+  void onPauseButtonPressed() {
+    pauseVideoRecording().then((_) {
+      if (mounted) {
+        setState(() {});
+      }
+      showInSnackBar('Video recording paused');
+    });
+  }
+
+  void onResumeButtonPressed() {
+    resumeVideoRecording().then((_) {
+      if (mounted) {
+        setState(() {});
+      }
+      showInSnackBar('Video recording resumed');
+    });
+  }
+
+  Future<void> startVideoRecording() async {
+    final CameraController? cameraController = controller;
+
+    if (cameraController == null || !cameraController.value.isInitialized) {
+      showInSnackBar('Error: select a camera first.');
+      return;
+    }
+
+    if (cameraController.value.isRecordingVideo) {
+      // A recording is already started, do nothing.
+      return;
+    }
+
+    try {
+      await cameraController.startVideoRecording();
+    } on CameraException catch (e) {
+      _showCameraException(e);
+      return;
+    }
+  }
+
+  Future<XFile?> stopVideoRecording() async {
+    final CameraController? cameraController = controller;
+
+    if (cameraController == null || !cameraController.value.isRecordingVideo) {
+      return null;
+    }
+
+    try {
+      return cameraController.stopVideoRecording();
+    } on CameraException catch (e) {
+      _showCameraException(e);
+      return null;
+    }
+  }
+
+  Future<void> pauseVideoRecording() async {
+    final CameraController? cameraController = controller;
+
+    if (cameraController == null || !cameraController.value.isRecordingVideo) {
+      return;
+    }
+
+    try {
+      await cameraController.pauseVideoRecording();
+    } on CameraException catch (e) {
+      _showCameraException(e);
+      rethrow;
+    }
+  }
+
+  Future<void> resumeVideoRecording() async {
+    final CameraController? cameraController = controller;
+
+    if (cameraController == null || !cameraController.value.isRecordingVideo) {
+      return;
+    }
+
+    try {
+      await cameraController.resumeVideoRecording();
+    } on CameraException catch (e) {
+      _showCameraException(e);
+      rethrow;
+    }
+  }
+
+  Future<void> setFlashMode(FlashMode mode) async {
+    if (controller == null) {
+      return;
+    }
+
+    try {
+      await controller!.setFlashMode(mode);
+    } on CameraException catch (e) {
+      _showCameraException(e);
+      rethrow;
+    }
+  }
+
+  Future<void> setExposureMode(ExposureMode mode) async {
+    if (controller == null) {
+      return;
+    }
+
+    try {
+      await controller!.setExposureMode(mode);
+    } on CameraException catch (e) {
+      _showCameraException(e);
+      rethrow;
+    }
+  }
+
+  Future<void> setExposureOffset(double offset) async {
+    if (controller == null) {
+      return;
+    }
+
+    setState(() {
+      _currentExposureOffset = offset;
+    });
+    try {
+      offset = await controller!.setExposureOffset(offset);
+    } on CameraException catch (e) {
+      _showCameraException(e);
+      rethrow;
+    }
+  }
+
+  Future<void> setFocusMode(FocusMode mode) async {
+    if (controller == null) {
+      return;
+    }
+
+    try {
+      await controller!.setFocusMode(mode);
+    } on CameraException catch (e) {
+      _showCameraException(e);
+      rethrow;
+    }
+  }
+
+  Future<void> _startVideoPlayer() async {
+    if (videoFile == null) {
+      return;
+    }
+
+    final VideoPlayerController vController = kIsWeb
+        ? VideoPlayerController.network(videoFile!.path)
+        : VideoPlayerController.file(File(videoFile!.path));
+
+    videoPlayerListener = () {
+      if (videoController != null && videoController!.value.size != null) {
+        // Refreshing the state to update video player with the correct ratio.
+        if (mounted) {
+          setState(() {});
+        }
+        videoController!.removeListener(videoPlayerListener!);
+      }
+    };
+    vController.addListener(videoPlayerListener!);
+    await vController.setLooping(true);
+    await vController.initialize();
+    await videoController?.dispose();
+    if (mounted) {
+      setState(() {
+        imageFile = null;
+        videoController = vController;
+      });
+    }
+    await vController.play();
+  }
+
+  Future<XFile?> takePicture() async {
+    final CameraController? cameraController = controller;
+    if (cameraController == null || !cameraController.value.isInitialized) {
+      showInSnackBar('Error: select a camera first.');
+      return null;
+    }
+
+    if (cameraController.value.isTakingPicture) {
+      // A capture is already pending, do nothing.
+      return null;
+    }
+
+    try {
+      final XFile file = await cameraController.takePicture();
+      return file;
+    } on CameraException catch (e) {
+      _showCameraException(e);
+      return null;
+    }
+  }
+
+  void _showCameraException(CameraException e) {
+    logError(e.code, e.description);
+    showInSnackBar('Error: ${e.code}\n${e.description}');
+  }
+}
+
+class CameraApp extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      home: CameraExampleHome(),
     );
   }
 }
+
+List<CameraDescription> cameras = <CameraDescription>[];
+
+Future<void> main() async {
+  // Fetch the available cameras before initializing the app.
+  try {
+    WidgetsFlutterBinding.ensureInitialized();
+    cameras = await availableCameras();
+  } on CameraException catch (e) {
+    logError(e.code, e.description);
+  }
+  runApp(CameraApp());
+}
+
+/// This allows a value of type T or T? to be treated as a value of type T?.
+///
+/// We use this so that APIs that have become non-nullable can still be used
+/// with `!` and `?` on the stable branch.
+// TODO(ianh): Remove this once we roll stable in late 2021.
+T? _ambiguate<T>(T? value) => value;
